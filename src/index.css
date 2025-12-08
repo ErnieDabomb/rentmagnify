@@ -1,0 +1,19 @@
+﻿@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Make the app fill the viewport */
+html, body, #root { height: 100%; }
+
+/* Smooth text rendering */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Soft gradient background + base text */
+@layer base {
+  body {
+    @apply bg-gradient-to-b from-slate-50 via-indigo-50/50 to-slate-50 text-slate-900;
+  }
+}

@@ -1,0 +1,48 @@
+[
+  {
+    "id": "rm-001",
+    "title": "Sunny 1BR in Astoria",
+    "rent": 2450,
+    "beds": 1,
+    "baths": 1,
+    "washerDryer": true,
+    "hvac": true,
+    "amenities": ["elevator", "dishwasher"],
+    "pets": true,
+    "lat": 40.7641,
+    "lng": -73.9236,
+    "address": "30-01 Newtown Ave, Queens, NY",
+    "available": "2025-11-01"
+  },
+  {
+    "id": "rm-002",
+    "title": "Modern 2BR near Prospect Park",
+    "rent": 3450,
+    "beds": 2,
+    "baths": 1,
+    "washerDryer": false,
+    "hvac": true,
+    "amenities": ["gym", "parking"],
+    "pets": false,
+    "lat": 40.6602,
+    "lng": -73.969,
+    "address": "15 Ocean Ave, Brooklyn, NY",
+    "available": "2025-11-15"
+  },
+  {
+    "id": "rm-003",
+    "title": "Hoboken Studio — River View",
+    "rent": 2300,
+    "beds": 0,
+    "baths": 1,
+    "washerDryer": true,
+    "hvac": false,
+    "amenities": ["balcony"],
+    "pets": true,
+    "lat": 40.741,
+    "lng": -74.0324,
+    "address": "1 River St, Hoboken, NJ",
+    "available": "2025-12-01"
+  }
+]
+
