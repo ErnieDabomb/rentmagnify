@@ -1,8 +1,15 @@
 import { useEffect, useState } from "react";
 import { listApproved } from "../services/dataStore";
+import { readCache, writeCache } from "../utils/localCache";
 
 const CACHE_KEY = 'rm_listings_cache_v1';
 const CACHE_TTL = 1000 * 60 * 60 * 24; // 24h
+
+// listApproved() reads Firestore. Cache it so repeat visits/navigations within
+// this window reuse the result instead of spending more of the Spark plan's
+// daily read quota.
+const APPROVED_CACHE_KEY = 'rm_approved_cache_v1';
+const APPROVED_CACHE_TTL = 1000 * 60 * 15; // 15 min
 
 export function useListings() {
   const [listings, setListings] = useState([]);
@@ -31,7 +38,18 @@ export function useListings() {
           }
         }
 
-        const approved = await listApproved()
+        let approved = readCache(APPROVED_CACHE_KEY, APPROVED_CACHE_TTL)
+        if (approved === null) {
+          approved = []
+          try {
+            approved = await listApproved()
+            writeCache(APPROVED_CACHE_KEY, approved)
+          } catch (e) {
+            if (import.meta.env.DEV) {
+              console.warn('listApproved failed, using base listings only', e)
+            }
+          }
+        }
         const merged = Array.isArray(approved) && approved.length
           ? [
               ...base.map((b) => ({ ...b, source: 'verified' })),

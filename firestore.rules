@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // A signed-in admin (Firebase Auth email/password, via the admin page's
+    // "Sign in with Firebase" option) — the /admin passcode alone is a UI
+    // convenience only, it ships in the public JS bundle and is not a
+    // security boundary. Real protection lives here.
+    function isAdmin() {
+      return request.auth != null;
+    }
+
+    function isValidNewReport(data) {
+      return data.keys().hasAll(['status', 'createdAt', 'deviceId', 'data'])
+        && data.status == 'pending'
+        && data.createdAt is number
+        && data.deviceId is string
+        && data.data is map;
+    }
+
+    // Community rent submissions. "rentReports" is the current collection,
+    // "submissions" is a legacy name the app still reads/writes for
+    // backward compatibility. Anyone can submit one for review; only a
+    // signed-in admin can change its status or delete it.
+    match /rentReports/{reportId} {
+      allow create: if isValidNewReport(request.resource.data);
+      allow read: if true;
+      allow update, delete: if isAdmin();
+    }
+
+    match /submissions/{submissionId} {
+      allow create: if isValidNewReport(request.resource.data);
+      allow read: if true;
+      allow update, delete: if isAdmin();
+    }
+
+    // Rent-negotiation tool usage logs. Anyone using the tool can create an
+    // entry; only a signed-in admin can read the log or manage entries.
+    match /negotiationRequests/{requestId} {
+      allow create: if request.resource.data.keys().hasAll(['listedRent', 'unitType', 'leaseLength', 'isRenewal'])
+        && request.resource.data.listedRent is number;
+      allow read: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // Deny anything not explicitly allowed above.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

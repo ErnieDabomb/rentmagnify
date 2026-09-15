@@ -1,6 +1,6 @@
-import { MapContainer, TileLayer, CircleMarker, Popup, Marker, useMap, useMapEvents } from 'react-leaflet'
+﻿import { MapContainer, TileLayer, CircleMarker, Popup, Marker, useMap, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
-import { useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { useListings } from '../hooks/useListings'
 import { applyFilters } from '../utils/filters'
 import { createClusterer } from '../utils/clustering'
@@ -68,19 +68,25 @@ export default function MapView({
   focusedListingName,
 }) {
   const { listings, loading: internalLoading, error } = useListings()
+  const hasValidCoords = (point) => Number.isFinite(Number(point?.lat)) && Number.isFinite(Number(point?.lng))
 
   const filtered = useMemo(() => {
     if (propListings) return propListings
     return applyFilters(listings, filters)
   }, [propListings, listings, filters])
 
+  const withCoords = useMemo(
+    () => (filtered || []).map((l) => ({ ...l, lat: Number(l.lat), lng: Number(l.lng) })).filter(hasValidCoords),
+    [filtered]
+  )
+
   const computedCenter = useMemo(() => {
-    const src = filtered?.length ? filtered : propListings || listings
+    const src = withCoords.length ? withCoords : (propListings || listings || []).filter(hasValidCoords)
     if (!src?.length) return [40.73, -73.93]
-    const lat = src.reduce((s, l) => s + (l.lat || 0), 0) / src.length
-    const lng = src.reduce((s, l) => s + (l.lng || 0), 0) / src.length
+    const lat = src.reduce((s, l) => s + Number(l.lat), 0) / src.length
+    const lng = src.reduce((s, l) => s + Number(l.lng), 0) / src.length
     return [lat, lng]
-  }, [filtered, propListings, listings])
+  }, [withCoords, propListings, listings])
 
 const [minRent, maxRent] = useMemo(() => {
   const rents = (filtered || []).map((l) => l.rent).filter((n) => typeof n === 'number')
@@ -105,16 +111,23 @@ const TRANSIT_TILE_TOKEN = import.meta.env.VITE_TRANSIT_TILE_TOKEN
   }
 
   const clusterer = useMemo(() => createClusterer({ strategy: 'grid', superclusterOptions: { radius: 64 } }), [])
-  const clusters = useMemo(() => clusterer.cluster(filtered, zoom || 12), [clusterer, filtered, zoom])
+  const clusters = useMemo(() => clusterer.cluster(withCoords, zoom || 12), [clusterer, withCoords, zoom])
 
-  const clusterIcon = (count) => L.divIcon({
-    className: 'rm-cluster',
-    html: `<div style="display:inline-grid;place-items:center;width:38px;height:38px;border-radius:9999px;background:#1d4ed8;color:#fff;font-weight:700;box-shadow:0 8px 18px rgba(2,6,23,0.18);border:1px solid #fff;text-shadow:0 0 2px #fff, 0 0 1px #fff;">${count}</div>`,
-    iconSize: [38, 38],
-  })
+  const clusterIconCache = useMemo(() => new Map(), [])
+  const clusterIcon = useCallback((count) => {
+    let icon = clusterIconCache.get(count)
+    if (!icon) {
+      icon = L.divIcon({
+        className: 'rm-cluster',
+        html: `<div style="display:inline-grid;place-items:center;width:38px;height:38px;border-radius:9999px;background:#1d4ed8;color:#fff;font-weight:700;box-shadow:0 8px 18px rgba(2,6,23,0.18);border:1px solid #fff;text-shadow:0 0 2px #fff, 0 0 1px #fff;">${count}</div>`,
+        iconSize: [38, 38],
+      })
+      clusterIconCache.set(count, icon)
+    }
+    return icon
+  }, [clusterIconCache])
 
   const isLoading = loadingProp ?? internalLoading
-  const prefersDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
 
   if (error) {
     return <div className="text-red-600">Failed to load listings: {error}</div>
@@ -141,27 +154,20 @@ const TRANSIT_TILE_TOKEN = import.meta.env.VITE_TRANSIT_TILE_TOKEN
         <ViewportReporter onViewportChange={onViewportChange} />
         <FitBoundsOnChange bounds={fitBounds} version={fitVersion} />
         {basemap === 'satellite' ? (
-          <>
-            <TileLayer
-              attribution="Tiles © Esri — Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
-              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}.png"
-              errorTileUrl={ERROR_TILE}
-            />
-            <TileLayer
-              attribution="© OpenStreetMap contributors & CARTO"
-              url="https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}.png"
-              errorTileUrl={ERROR_TILE}
-            />
-          </>
+          <TileLayer
+            attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}.png"
+            errorTileUrl={ERROR_TILE}
+          />
         ) : basemap === 'transit' ? (
           <>
             <TileLayer
-              attribution="© OpenStreetMap contributors | Carto"
-              url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png"
+              attribution="&copy; OpenStreetMap contributors"
+              url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
               errorTileUrl={ERROR_TILE}
             />
             <TileLayer
-              attribution="Transit © openstreetmap.fr contributors"
+              attribution="Transit &copy; openstreetmap.fr contributors"
               url={
                 TRANSIT_TILE_URL
                   ? `${TRANSIT_TILE_URL}${TRANSIT_TILE_TOKEN ? `?access_token=${TRANSIT_TILE_TOKEN}` : ''}`
@@ -173,24 +179,33 @@ const TRANSIT_TILE_TOKEN = import.meta.env.VITE_TRANSIT_TILE_TOKEN
           </>
         ) : basemap === 'buildings' ? (
           <TileLayer
-            attribution="© OpenStreetMap contributors | CARTO Voyager"
-            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"
+            attribution="&copy; OpenStreetMap contributors"
+            url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
             errorTileUrl={ERROR_TILE}
           />
         ) : (
-          <TileLayer
-            attribution="© OpenStreetMap contributors"
-            url={
-              prefersDark
-                ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"
-                : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            }
-            errorTileUrl={ERROR_TILE}
-          />
+          <>
+            <TileLayer
+              attribution="&copy; OpenStreetMap contributors"
+              url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+              errorTileUrl={ERROR_TILE}
+            />
+            <TileLayer
+              attribution="Transit &copy; openstreetmap.fr contributors"
+              url={
+                TRANSIT_TILE_URL
+                  ? `${TRANSIT_TILE_URL}${TRANSIT_TILE_TOKEN ? `?access_token=${TRANSIT_TILE_TOKEN}` : ''}`
+                  : "https://{s}.tile.openstreetmap.fr/transport/{z}/{x}/{y}.png"
+              }
+              errorTileUrl={ERROR_TILE}
+              opacity={0.85}
+            />
+          </>
         )}
         {!isLoading && clusters.map((c, idx) => {
           if (!c.cluster) {
             const l = c.point
+            if (!hasValidCoords(l)) return null
             const isActive = hoveredId && l.id === hoveredId
             return (
               <CircleMarker
@@ -215,7 +230,7 @@ const TRANSIT_TILE_TOKEN = import.meta.env.VITE_TRANSIT_TILE_TOKEN
                 <Popup>
                   <div className="min-w-[180px] space-y-1">
                     <div className="font-bold text-slate-900">{l.title}</div>
-                    <div className="text-slate-800">${l.rent.toLocaleString()} · {l.beds}bd/{l.baths}ba</div>
+                    <div className="text-slate-800">${l.rent.toLocaleString()} Â· {l.beds}bd/{l.baths}ba</div>
                     <div className="text-slate-600">{l.address}</div>
                     <div className="text-[11px] font-semibold">
                       {l.source === 'verified' ? (
@@ -231,6 +246,7 @@ const TRANSIT_TILE_TOKEN = import.meta.env.VITE_TRANSIT_TILE_TOKEN
             )
           }
           const count = c.count
+          if (!Number.isFinite(c.lat) || !Number.isFinite(c.lng)) return null
           return (
             <Marker
               key={`cluster-${idx}`}
@@ -286,3 +302,4 @@ const TRANSIT_TILE_TOKEN = import.meta.env.VITE_TRANSIT_TILE_TOKEN
     </div>
   )
 }
+

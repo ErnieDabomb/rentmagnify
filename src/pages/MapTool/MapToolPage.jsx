@@ -26,8 +26,6 @@ export default function MapToolPage() {
     }
   }
 
-  const shortState = decodeShort()
-
   const [filters, setFilters] = useState(() => {
     const getNum = (key, fallback) => {
       const v = searchParams.get(key)
@@ -45,6 +43,7 @@ export default function MapToolPage() {
       if (v === 'false') return false
       return null
     }
+    const shortState = decodeShort()
     if (shortState?.filters) {
       return { ...shortState.filters }
     }
@@ -73,15 +72,19 @@ export default function MapToolPage() {
     const bounds = Number.isFinite(north) && Number.isFinite(south) && Number.isFinite(east) && Number.isFinite(west)
       ? { north, south, east, west }
       : undefined
+    const shortState = decodeShort()
     if (shortState?.viewport) return shortState.viewport
     if (Number.isFinite(lat) && Number.isFinite(lng) && Number.isFinite(zoom)) return { lat, lng, zoom, bounds }
     return null
   })
 
-  const [basemap, setBasemap] = useState(() =>
-    shortState?.basemap ||
-    (searchParams.get('basemap') === 'satellite' ? 'satellite' : (searchParams.get('basemap') || 'standard'))
-  )
+  const [basemap, setBasemap] = useState(() => {
+    const shortState = decodeShort()
+    return (
+      shortState?.basemap ||
+      (searchParams.get('basemap') === 'satellite' ? 'satellite' : (searchParams.get('basemap') || 'standard'))
+    )
+  })
 
   const urlTimer = useRef(null)
   useEffect(() => {
@@ -117,13 +120,11 @@ export default function MapToolPage() {
     urlTimer.current = setTimeout(() => setSearchParams(params), 250)
     return () => { if (urlTimer.current) clearTimeout(urlTimer.current) }
   }, [filters, viewport, basemap, setSearchParams])
-  useEffect(() => {
-    setFilterChanges((c) => c + 1)
-  }, [filters])
+
   useEffect(() => {
     logEvent('filters_change', { filters })
   }, [filters])
-  // Build compact share state
+
   const buildShortUrl = () => {
     const payload = { filters, viewport, basemap }
     const packed = btoa(JSON.stringify(payload))
@@ -133,6 +134,10 @@ export default function MapToolPage() {
   }
 
   const filtered = useMemo(() => applyFilters(listings, filters), [listings, filters])
+  const missingCoords = useMemo(
+    () => filtered.filter((l) => !Number.isFinite(l.lat) || !Number.isFinite(l.lng)).length,
+    [filtered]
+  )
   const dataBounds = useMemo(() => {
     if (!filtered?.length) return null
     let north = -90, south = 90, east = -180, west = 180
@@ -152,14 +157,8 @@ export default function MapToolPage() {
   const [hoveredId, setHoveredId] = useState(null)
   const [focusedListingName, setFocusedListingName] = useState('')
   const [statusMsg, setStatusMsg] = useState('')
-  const [filterChanges, setFilterChanges] = useState(0)
   const [showEmailModal, setShowEmailModal] = useState(() => !localStorage.getItem('rm_email_optin'))
   const [email, setEmail] = useState('')
-  useEffect(() => {
-    if (filterChanges >= 3 && showEmailModal) {
-      setShowEmailModal(true)
-    }
-  }, [filterChanges, showEmailModal])
 
   const resetFilters = () => {
     setFilters({
@@ -182,6 +181,11 @@ export default function MapToolPage() {
   return (
     <div className="grid gap-6">
       {statusMsg && <div className="sr-only" aria-live="polite">{statusMsg}</div>}
+      {import.meta.env.DEV && missingCoords > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-xs text-amber-800 shadow-sm">
+          {missingCoords} listings are missing coordinates and will not render on the map.
+        </div>
+      )}
       <MapToolHeader filteredCount={filtered.length} totalCount={listings?.length || 0} loading={loading} />
 
       <StatsInline listings={filtered} />
@@ -217,12 +221,17 @@ export default function MapToolPage() {
           }
         }}
         copied={copied}
-        onPickLocation={(c)=> setViewport({ lat: c.lat, lng: c.lng, zoom: c.zoom || 12 })}
+        onPickLocation={(c) => setViewport({ lat: c.lat, lng: c.lng, zoom: c.zoom || 12 })}
       />
 
       {!loading && filtered.length === 0 && (
         <div className="rounded-xl border border-slate-200 bg-white/70 p-4 text-slate-700">
           No results match your filters. Try widening price, beds, or clearing the keyword.
+        </div>
+      )}
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          Failed to load listings. {error}
         </div>
       )}
 
@@ -243,30 +252,34 @@ export default function MapToolPage() {
                 center={viewport ? [viewport.lat, viewport.lng] : undefined}
                 zoom={viewport?.zoom || 12}
                 onViewportChange={(v) => setViewport(v)}
-              fitBounds={fitVersion ? dataBounds : undefined}
-              fitVersion={fitVersion}
-              basemap={basemap}
-              loading={loading}
-              hoveredId={hoveredId}
-              onHoverListing={setHoveredId}
-              onResetFilters={resetFilters}
-              focusedListingName={focusedListingName}
-            />
-          </Suspense>
-        )}
-      </div>
-        <ResultsList
-          listings={filtered}
-          loading={loading}
-          hoveredId={hoveredId}
-          onHover={setHoveredId}
-          onSelect={(l) => {
+                fitBounds={fitVersion ? dataBounds : undefined}
+                fitVersion={fitVersion}
+                basemap={basemap}
+                loading={loading}
+                hoveredId={hoveredId}
+                onHoverListing={setHoveredId}
+                onResetFilters={resetFilters}
+                focusedListingName={focusedListingName}
+              />
+            </Suspense>
+          )}
+        </div>
+      <ResultsList
+        listings={filtered}
+        loading={loading}
+        hoveredId={hoveredId}
+        onHover={setHoveredId}
+        onSelect={(l) => {
             setFocusedListingName(l.title || l.address || 'Listing')
-            setViewport({ lat: l.lat, lng: l.lng, zoom: 15 })
+            if (Number.isFinite(l.lat) && Number.isFinite(l.lng)) {
+              setViewport({ lat: l.lat, lng: l.lng, zoom: 15 })
+            }
           }}
         />
       </div>
+
       <MobileFilterSheet filters={filters} onChange={setFilters} />
+
       {showEmailModal && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 px-4">
           <div className="max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
@@ -279,7 +292,7 @@ export default function MapToolPage() {
                 if (email.trim()) {
                   localStorage.setItem('rm_email_optin', email.trim())
                   setShowEmailModal(false)
-                  setStatusMsg('Thanks! We’ll keep you posted.')
+                  setStatusMsg("Thanks! We'll keep you posted.")
                   setTimeout(() => setStatusMsg(''), 1500)
                   logEvent('email_optin', { email: email.trim() })
                 }
@@ -288,14 +301,14 @@ export default function MapToolPage() {
               <input
                 type="email"
                 value={email}
-                onChange={(e)=>setEmail(e.target.value)}
+                onChange={(e) => setEmail(e.target.value)}
                 required
                 placeholder="you@example.com"
                 className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
               <div className="flex gap-2">
                 <button type="submit" className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white">Keep me updated</button>
-                <button type="button" onClick={()=>setShowEmailModal(false)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">No thanks</button>
+                <button type="button" onClick={() => setShowEmailModal(false)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">No thanks</button>
               </div>
               <div className="text-[11px] text-slate-500">Privacy-first. Unsubscribe anytime.</div>
             </form>

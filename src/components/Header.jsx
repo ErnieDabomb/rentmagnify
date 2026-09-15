@@ -29,6 +29,7 @@ export default function Header() {
           <Link className="hover:text-slate-900" to="/about">About</Link>
           <Link className="hover:text-slate-900" to="/map">Map</Link>
           <Link className="hover:text-slate-900" to="/negotiate">Negotiation Tool</Link>
+          <Link className="hover:text-slate-900" to="/affordability">Affordability</Link>
           <Link className="hover:text-slate-900 inline-flex items-center gap-1" to="/submit">
             Share Rent
             <span className="rounded-full bg-emerald-100 px-1.5 py-[1px] text-[10px] font-semibold text-emerald-700">NEW</span>

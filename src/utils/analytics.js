@@ -22,7 +22,6 @@ export function logEvent(name, data = {}) {
   events.push(evt)
   save(events)
   if (import.meta.env.DEV) {
-    // eslint-disable-next-line no-console
     console.info('[analytics]', evt)
   }
 }

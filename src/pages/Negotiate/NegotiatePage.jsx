@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { FIRESTORE_ENABLED, getDb, getFirestoreHelpers } from '../../services/firebaseConfig.js'
+import { formatCurrency } from '../../utils/currency.js'
 
 const unitTypes = ['Studio', '1BR', '2BR', '3BR+']
 const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -23,12 +24,6 @@ export default function NegotiatePage() {
   const [errors, setErrors] = useState({})
   const [copied, setCopied] = useState(false)
   const [logEnabled, setLogEnabled] = useState(() => FIRESTORE_ENABLED)
-
-  const formatCurrency = (value) => {
-    const numeric = Number(value)
-    if (Number.isNaN(numeric)) return '$0'
-    return `$${Math.round(numeric).toLocaleString('en-US')}`
-  }
 
   const updateField = (field) => (event) => {
     const value = field === 'isRenewal' ? event.target.checked : event.target.value
@@ -219,7 +214,7 @@ export default function NegotiatePage() {
       await navigator.clipboard.writeText(report.emailScript)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    } catch (error) {
+    } catch {
       setCopied(false)
     }
   }

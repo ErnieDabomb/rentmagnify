@@ -4,6 +4,7 @@ import { getDb, getFirestoreHelpers, FIRESTORE_ENABLED } from './firebaseConfig'
 // Set VITE_ENABLE_FIRESTORE=true and provide Firebase env vars to opt in. Defaults to local-only.
 
 const KEY = 'rm_submissions_v1'
+const RENT_REPORT_KEY = 'rm_rent_reports_v1'
 const DEVICE_KEY = 'rm_device_id'
 
 function loadAll() {
@@ -16,6 +17,29 @@ function loadAll() {
 
 function saveAll(list) {
   localStorage.setItem(KEY, JSON.stringify(list))
+}
+
+function loadRentReports() {
+  try {
+    return JSON.parse(localStorage.getItem(RENT_REPORT_KEY) || '[]')
+  } catch {
+    return []
+  }
+}
+
+function saveRentReports(list) {
+  localStorage.setItem(RENT_REPORT_KEY, JSON.stringify(list))
+}
+
+async function listRentReportsLocal(status) {
+  const all = loadRentReports()
+  return status ? all.filter((s) => s.status === status) : all
+}
+
+async function lastRentReportAtForDeviceLocal(deviceId) {
+  const all = loadRentReports()
+  const times = all.filter((s) => s.deviceId === deviceId).map((s) => s.createdAt)
+  return times.length ? Math.max(...times) : 0
 }
 
 function uid() {
@@ -45,6 +69,20 @@ async function addSubmissionLocal(data) {
   return item
 }
 
+async function addRentReportLocal(data) {
+  const all = loadRentReports()
+  const item = {
+    id: uid(),
+    status: 'pending',
+    createdAt: Date.now(),
+    deviceId: getDeviceId(),
+    data,
+  }
+  all.push(item)
+  saveRentReports(all)
+  return item
+}
+
 async function listSubmissionsLocal(status) {
   const all = loadAll()
   return status ? all.filter((s) => s.status === status) : all
@@ -57,6 +95,18 @@ async function updateStatusLocal(id, nextStatus) {
     all[idx].status = nextStatus
     all[idx].moderatedAt = Date.now()
     saveAll(all)
+    return true
+  }
+  return false
+}
+
+async function updateRentReportStatusLocal(id, nextStatus) {
+  const all = loadRentReports()
+  const idx = all.findIndex((s) => s.id === id)
+  if (idx >= 0) {
+    all[idx].status = nextStatus
+    all[idx].moderatedAt = Date.now()
+    saveRentReports(all)
     return true
   }
   return false
@@ -82,8 +132,22 @@ async function addSubmissionRemote(data) {
     deviceId: getDeviceId(),
     data,
   }
-  await helpers.addDoc(helpers.collection(db, 'submissions'), payload)
-  return payload
+  const ref = await helpers.addDoc(helpers.collection(db, 'submissions'), payload)
+  return { id: ref.id, ...payload }
+}
+
+async function addRentReportRemote(data) {
+  const db = await getDb()
+  const helpers = getFirestoreHelpers()
+  if (!db || !helpers) return addRentReportLocal(data)
+  const payload = {
+    status: 'pending',
+    createdAt: Date.now(),
+    deviceId: getDeviceId(),
+    data,
+  }
+  const ref = await helpers.addDoc(helpers.collection(db, 'rentReports'), payload)
+  return { id: ref.id, ...payload }
 }
 
 async function listSubmissionsRemote(status) {
@@ -104,6 +168,14 @@ async function updateStatusRemote(id, nextStatus) {
   return true
 }
 
+async function updateRentReportStatusRemote(id, nextStatus) {
+  const db = await getDb()
+  const helpers = getFirestoreHelpers()
+  if (!db || !helpers) return updateRentReportStatusLocal(id, nextStatus)
+  await helpers.updateDoc(helpers.doc(db, 'rentReports', id), { status: nextStatus, moderatedAt: Date.now() })
+  return true
+}
+
 async function lastSubmissionAtForDeviceRemote(deviceId) {
   const db = await getDb()
   const helpers = getFirestoreHelpers()
@@ -114,9 +186,39 @@ async function lastSubmissionAtForDeviceRemote(deviceId) {
   return times.length ? Math.max(...times) : 0
 }
 
+async function listRentReportsRemote(status) {
+  const db = await getDb()
+  const helpers = getFirestoreHelpers()
+  if (!db || !helpers) return listRentReportsLocal(status)
+  const base = helpers.collection(db, 'rentReports')
+  const q = status ? helpers.query(base, helpers.where('status', '==', status)) : base
+  const snap = await helpers.getDocs(q)
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+async function lastRentReportAtForDeviceRemote(deviceId) {
+  const db = await getDb()
+  const helpers = getFirestoreHelpers()
+  if (!db || !helpers) return lastRentReportAtForDeviceLocal(deviceId)
+  const q = helpers.query(helpers.collection(db, 'rentReports'), helpers.where('deviceId', '==', deviceId))
+  const snap = await helpers.getDocs(q)
+  const times = snap.docs.map((d) => d.data().createdAt).filter(Boolean)
+  return times.length ? Math.max(...times) : 0
+}
+
 export async function addSubmission(data) {
   if (!FIRESTORE_ENABLED) return addSubmissionLocal(data)
   return addSubmissionRemote(data)
+}
+
+export async function addRentReport(data) {
+  if (!FIRESTORE_ENABLED) return addRentReportLocal(data)
+  try {
+    return await addRentReportRemote(data)
+  } catch {
+    // Fallback to local to avoid blocking submissions when Firestore is misconfigured/offline.
+    return addRentReportLocal(data)
+  }
 }
 
 export async function listSubmissions(status) {
@@ -124,19 +226,69 @@ export async function listSubmissions(status) {
   return listSubmissionsRemote(status)
 }
 
+export async function listRentReports(status) {
+  if (!FIRESTORE_ENABLED) return listRentReportsLocal(status)
+  try {
+    return await listRentReportsRemote(status)
+  } catch {
+    return listRentReportsLocal(status)
+  }
+}
+
+// Backward-compatible aggregation: includes legacy submissions storage plus new rent reports.
+export async function listAllReports(status) {
+  const [reports, legacy] = await Promise.all([
+    listRentReports(status).catch(() => []),
+    listSubmissions(status).catch(() => []),
+  ])
+  // Prefer rentReports; append legacy items that have different ids
+  const ids = new Set(reports.map((r) => r.id))
+  const mergedLegacy = legacy.filter((l) => !ids.has(l.id))
+  return [...reports, ...mergedLegacy]
+}
+
 export async function updateStatus(id, nextStatus) {
   if (!FIRESTORE_ENABLED) return updateStatusLocal(id, nextStatus)
   return updateStatusRemote(id, nextStatus)
 }
 
+export async function updateRentReportStatus(id, nextStatus) {
+  if (!FIRESTORE_ENABLED) {
+    // Try rent reports, then fall back to legacy submissions
+    const ok = await updateRentReportStatusLocal(id, nextStatus)
+    if (ok) return true
+    return updateStatusLocal(id, nextStatus)
+  }
+  try {
+    return await updateRentReportStatusRemote(id, nextStatus)
+  } catch {
+    // Fallback to legacy submissions collection if needed
+    return updateStatusRemote(id, nextStatus)
+  }
+}
+
 export async function listApproved() {
-  const items = await listSubmissions('approved')
-  return items.map((s) => s.data)
+  try {
+    const items = await listRentReports('approved')
+    return items.map((s) => s.data)
+  } catch {
+    const items = await listSubmissions('approved')
+    return items.map((s) => s.data)
+  }
 }
 
 export async function lastSubmissionAtForDevice(deviceId) {
   if (!FIRESTORE_ENABLED) return lastSubmissionAtForDeviceLocal(deviceId)
   return lastSubmissionAtForDeviceRemote(deviceId)
+}
+
+export async function lastRentReportAtForDevice(deviceId) {
+  if (!FIRESTORE_ENABLED) return lastRentReportAtForDeviceLocal(deviceId)
+  try {
+    return await lastRentReportAtForDeviceRemote(deviceId)
+  } catch {
+    return lastRentReportAtForDeviceLocal(deviceId)
+  }
 }
 
 export async function clearAllSubmissions() {

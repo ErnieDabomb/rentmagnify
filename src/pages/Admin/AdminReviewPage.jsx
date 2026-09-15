@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
-import { listSubmissions, updateStatus } from '../../services/dataStore'
+﻿import { useCallback, useEffect, useMemo, useState } from 'react'
+import { listAllReports, updateRentReportStatus } from '../../services/dataStore'
+import { getFirebaseApp } from '../../services/firebaseConfig'
 import { useToast } from '../../components/ToastProvider'
 
 export default function AdminReviewPage() {
@@ -17,31 +18,33 @@ export default function AdminReviewPage() {
   const FIRESTORE_ENABLED = import.meta.env.VITE_ENABLE_FIRESTORE === 'true'
   const USE_EMULATOR = import.meta.env.VITE_FIRESTORE_EMULATOR_HOST
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     setLoading(true)
-    const list = await listSubmissions(tab)
-    const rents = (list || []).map((s) => Number(s.data?.rent)).filter(Number.isFinite).sort((a,b)=>a-b)
-    let low = null, high = null
-    if (rents.length >= 4) {
-      const q1 = rents[Math.floor(rents.length * 0.25)]
-      const q3 = rents[Math.floor(rents.length * 0.75)]
-      const iqrVal = q3 - q1
-      low = q1 - 3 * iqrVal
-      high = q3 + 3 * iqrVal
+    try {
+      const list = await listAllReports(tab)
+      const rents = (list || []).map((s) => Number(s.data?.rent)).filter(Number.isFinite).sort((a,b)=>a-b)
+      let low = null, high = null
+      if (rents.length >= 4) {
+        const q1 = rents[Math.floor(rents.length * 0.25)]
+        const q3 = rents[Math.floor(rents.length * 0.75)]
+        const iqrVal = q3 - q1
+        low = q1 - 3 * iqrVal
+        high = q3 + 3 * iqrVal
+      }
+      setIqr({ low, high })
+      setItems(list || [])
+    } finally {
+      setLoading(false)
     }
-    setIqr({ low, high })
-    setItems(list || [])
-    setLoading(false)
-  }
+  }, [tab])
 
-  useEffect(() => { if (ok) refresh() }, [tab, ok])
+  useEffect(() => { if (ok) refresh() }, [ok, refresh])
 
   if (!ok) {
     const tryFirebase = async () => {
       try {
-        const authModule = ['firebase', 'auth'].join('/')
-        const mod = await import(/* @vite-ignore */ authModule)
-        const auth = mod.getAuth()
+        const [app, mod] = await Promise.all([getFirebaseApp(), import('firebase/auth')])
+        const auth = mod.getAuth(app)
         if (USE_EMULATOR) {
           mod.connectAuthEmulator(auth, `http://${USE_EMULATOR}`)
         }
@@ -125,7 +128,6 @@ export default function AdminReviewPage() {
               <div className="text-sm text-slate-500">${s.data.rent?.toLocaleString?.() || s.data.rent} · {s.data.beds}bd/{s.data.baths}ba</div>
             </div>
             <div className="text-sm text-slate-600">{s.data.address}</div>
-            <div className="text-xs text-slate-500">Lat/Lng: {s.data.lat}, {s.data.lng}</div>
             {iqr.low !== null && iqr.high !== null && (s.data.rent < iqr.low || s.data.rent > iqr.high) && (
               <div className="mt-2 rounded bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
                 Possible outlier vs IQR: outside ${Math.round(iqr.low)} - ${Math.round(iqr.high)}
@@ -133,8 +135,8 @@ export default function AdminReviewPage() {
             )}
             {tab==='pending' && (
               <div className="mt-2 flex gap-2">
-                <button className="rounded bg-emerald-600 text-white px-3 py-1.5" onClick={async ()=>{await updateStatus(s.id,'approved'); refresh(); show('Approved', 'success')}}>Approve</button>
-                <button className="rounded bg-red-600 text-white px-3 py-1.5" onClick={async ()=>{await updateStatus(s.id,'rejected'); refresh(); show('Rejected', 'success')}}>Reject</button>
+                <button className="rounded bg-emerald-600 text-white px-3 py-1.5" onClick={async ()=>{await updateRentReportStatus(s.id,'approved'); refresh(); show('Approved', 'success')}}>Approve</button>
+                <button className="rounded bg-red-600 text-white px-3 py-1.5" onClick={async ()=>{await updateRentReportStatus(s.id,'rejected'); refresh(); show('Rejected', 'success')}}>Reject</button>
               </div>
             )}
           </div>

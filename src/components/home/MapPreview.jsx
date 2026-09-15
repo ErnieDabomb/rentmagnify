@@ -7,12 +7,16 @@ import { applyFilters } from '../../utils/filters'
 export default function MapPreview() {
   const { listings, loading } = useListings()
   const filtered = useMemo(() => applyFilters(listings, {}), [listings])
-  const sample = filtered.slice(0, 80)
+  const hasValidCoords = (point) => Number.isFinite(Number(point?.lat)) && Number.isFinite(Number(point?.lng))
+  const sample = useMemo(
+    () => filtered.map((l) => ({ ...l, lat: Number(l.lat), lng: Number(l.lng) })).filter(hasValidCoords).slice(0, 80),
+    [filtered]
+  )
 
   const center = useMemo(() => {
     if (!sample.length) return [40.73, -73.93]
-    const lat = sample.reduce((s, l) => s + (l.lat || 0), 0) / sample.length
-    const lng = sample.reduce((s, l) => s + (l.lng || 0), 0) / sample.length
+    const lat = sample.reduce((s, l) => s + l.lat, 0) / sample.length
+    const lng = sample.reduce((s, l) => s + l.lng, 0) / sample.length
     return [lat, lng]
   }, [sample])
 
@@ -58,8 +62,8 @@ export default function MapPreview() {
         >
           {/* Clean base similar to a schematic background */}
           <TileLayer
-            attribution="© OpenStreetMap contributors | Carto"
-            url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png"
+            attribution="&copy; OpenStreetMap contributors"
+            url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           {/* Transit overlay to pull subway/rail lines & stations */}
           <TileLayer

@@ -13,6 +13,7 @@ const NegotiationRequestsPage = lazy(() => import('./pages/Admin/NegotiationRequ
 const PrivacyPage = lazy(() => import('./pages/Legal/PrivacyPage.jsx'))
 const TermsPage = lazy(() => import('./pages/Legal/TermsPage.jsx'))
 const NegotiatePage = lazy(() => import('./pages/Negotiate/NegotiatePage.jsx'))
+const AffordabilityPage = lazy(() => import('./pages/Affordability/AffordabilityPage.jsx'))
 
 export default function App() {
   return (
@@ -26,11 +27,13 @@ export default function App() {
               <Route path="/about" element={<AboutPage />} />
               <Route path="/map" element={<MapToolPage />} />
               <Route path="/submit" element={<SubmitPage />} />
+              <Route path="/share" element={<SubmitPage />} />
               <Route path="/admin" element={<AdminReviewPage />} />
               <Route path="/admin/negotiations" element={<NegotiationRequestsPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/negotiate" element={<NegotiatePage />} />
+              <Route path="/affordability" element={<AffordabilityPage />} />
             </Routes>
           </Suspense>
         </main>

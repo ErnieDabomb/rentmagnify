@@ -1,11 +1,6 @@
 import { useEffect, useState } from 'react'
 import { FIRESTORE_ENABLED, getDb, getFirestoreHelpers } from '../../services/firebaseConfig.js'
-
-const formatCurrency = (value) => {
-  const numeric = Number(value)
-  if (Number.isNaN(numeric)) return '-'
-  return `$${Math.round(numeric).toLocaleString('en-US')}`
-}
+import { formatCurrency } from '../../utils/currency.js'
 
 const formatDate = (timestamp) => {
   if (!timestamp) return '-'
@@ -95,7 +90,7 @@ export default function NegotiationRequestsPage() {
         >
           {loaded ? 'Refresh' : 'Load requests'}
         </button>
-        {loading && <span className="text-sm text-slate-600">Loading…</span>}
+        {loading && <span className="text-sm text-slate-600">Loading.</span>}
       </div>
 
       {error && <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
@@ -125,7 +120,7 @@ export default function NegotiationRequestsPage() {
                     <td className="px-4 py-3 text-slate-700">{formatDate(row.timestamp)}</td>
                     <td className="px-4 py-3 text-slate-700">{row.city || '-'}</td>
                     <td className="px-4 py-3 text-slate-700">{row.isRenewal ? 'Yes' : 'No'}</td>
-                    <td className="px-4 py-3 text-slate-700">{formatCurrency(row.listedRent)}</td>
+                    <td className="px-4 py-3 text-slate-700">{formatCurrency(row.listedRent, '-')}</td>
                     <td className="px-4 py-3 text-slate-700">{row.currentRent ? formatCurrency(row.currentRent) : '-'}</td>
                     <td className="px-4 py-3 text-slate-700">{row.increasePercent != null ? `${Number(row.increasePercent).toFixed(1)}%` : '-'}</td>
                     <td className="px-4 py-3 text-slate-700">{row.recommendationSummary || '-'}</td>

@@ -5,7 +5,7 @@ export default function AboutPage() {
       <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">About RentMagnify</h1>
       <div className="mt-1 mb-2 text-sm text-slate-500">Our mission: fair, transparent rentals</div>
       <p className="text-slate-700">
-        RentMagnify is a consumer-first tool to bring transparency to rental markets. We aggregate community submissions and public data so renters can compare fair prices and make confident decisions — without ads or dark patterns.
+        RentMagnify is a consumer-first tool to bring transparency to rental markets. We aggregate community submissions and public data so renters can compare fair prices and make confident decisions—without ads or dark patterns.
       </p>
       <h2 className="text-xl font-semibold mt-4">FAQ</h2>
       <div className="grid gap-3">
@@ -15,7 +15,7 @@ export default function AboutPage() {
         </div>
         <div>
           <div className="font-semibold">Is my data private?</div>
-          <div className="text-slate-700 text-sm">Yes. We only store the fields you provide to help others compare rents. No third‑party tracking or ads.</div>
+          <div className="text-slate-700 text-sm">Yes. We only store the fields you provide to help others compare rents. No third-party tracking or ads.</div>
         </div>
         <div>
           <div className="font-semibold">Why can I submit only once every 72 hours?</div>
@@ -24,8 +24,8 @@ export default function AboutPage() {
         <div>
           <div className="font-semibold">Can I request a data correction?</div>
           <div className="text-slate-700 text-sm">
-            Absolutely. Contact us via the footer links with the listing ID and details, or email
-            {' '}<a className="text-blue-600 hover:underline" href="mailto:corrections@rentmagnify.com">corrections@rentmagnify.com</a>.
+            Absolutely. Contact us via the footer links with the listing ID and details, or email{' '}
+            <a className="text-blue-600 hover:underline" href="mailto:corrections@rentmagnify.com">corrections@rentmagnify.com</a>.
           </div>
         </div>
       </div>

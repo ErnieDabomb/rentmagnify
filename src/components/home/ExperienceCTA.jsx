@@ -13,7 +13,7 @@ export default function ExperienceCTA() {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => navigate('/submit')}
+              onClick={() => navigate('/share')}
               className="rounded-xl bg-gradient-to-b from-blue-500 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(37,99,235,.25)] hover:brightness-105 active:translate-y-px"
             >
               Share your rent
