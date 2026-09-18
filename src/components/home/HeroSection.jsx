@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import BubbleBG from '../BubbleBG'
 import Container from '../ui/Container'
 import MapPreview from './MapPreview'
@@ -29,12 +30,12 @@ export default function HeroSection({ onOpenMap }) {
               >
                 Open Map Tool
               </button>
-              <a
-                href="/about"
+              <Link
+                to="/about"
                 className="inline-flex items-center gap-2 rounded-xl border border-slate-900/10 bg-white px-4 py-2 text-slate-900 hover:bg-slate-50"
               >
                 Learn more
-              </a>
+              </Link>
             </div>
 
             <p className="text-xs text-slate-500">

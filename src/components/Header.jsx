@@ -44,8 +44,7 @@ export default function Header() {
           >
             {theme === 'dark' ? 'Light' : 'Dark'}
           </button>
-          <Button variant="ghost" className="hidden sm:inline-flex">Sign in</Button>
-          <Button>Get started</Button>
+          <Button as={Link} to="/map">Get started</Button>
         </div>
       </Container>
     </header>

@@ -1,7 +1,10 @@
-﻿import { useEffect, useMemo, useState } from "react"
+﻿import { useEffect, useMemo, useRef, useState } from "react"
 import { addRentReport, getDeviceId, lastRentReportAtForDevice, listRentReports } from "../../services/dataStore"
 import { readCache, writeCache } from "../../utils/localCache"
+import { geocodeAddress } from "../../utils/geocode"
 import { useToast } from "../../components/ToastProvider"
+
+const GEOCODE_TIMEOUT_MS = 8000
 
 const HOURS_72 = 72 * 60 * 60 * 1000
 // listRentReports() with no status reads the whole collection. Cache it so
@@ -28,6 +31,10 @@ export default function SubmitPage() {
   const [submissions, setSubmissions] = useState([])
   const [lastTime, setLastTime] = useState(0)
   const [successListing, setSuccessListing] = useState(null)
+  const [geocodeStatus, setGeocodeStatus] = useState("idle") // idle | loading | found | not-found | error
+  const [geocodeResult, setGeocodeResult] = useState(null) // { lat, lng, displayName }
+  const [geocodedAddress, setGeocodedAddress] = useState("")
+  const geocodeAbortRef = useRef(null)
   const { show } = useToast()
 
   const deviceId = useMemo(() => getDeviceId(), [])
@@ -74,6 +81,43 @@ export default function SubmitPage() {
 
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
 
+  async function runGeocode(addressValue) {
+    const trimmed = (addressValue || "").trim()
+    if (!trimmed) {
+      setGeocodeStatus("idle")
+      setGeocodeResult(null)
+      setGeocodedAddress("")
+      return { status: "idle", result: null }
+    }
+    if (trimmed === geocodedAddress && geocodeStatus !== "idle" && geocodeStatus !== "loading") {
+      return { status: geocodeStatus, result: geocodeResult }
+    }
+
+    if (geocodeAbortRef.current) geocodeAbortRef.current.abort()
+    const controller = new AbortController()
+    geocodeAbortRef.current = controller
+    const timer = setTimeout(() => controller.abort(), GEOCODE_TIMEOUT_MS)
+
+    setGeocodeStatus("loading")
+    try {
+      const result = await geocodeAddress(trimmed, { signal: controller.signal })
+      if (controller.signal.aborted) return { status: "aborted", result: null }
+      const status = result ? "found" : "not-found"
+      setGeocodeResult(result)
+      setGeocodedAddress(trimmed)
+      setGeocodeStatus(status)
+      return { status, result }
+    } catch {
+      if (controller.signal.aborted) return { status: "aborted", result: null }
+      setGeocodeStatus("error")
+      setGeocodeResult(null)
+      setGeocodedAddress(trimmed)
+      return { status: "error", result: null }
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+
   function validate() {
     const errors = []
     const r = Number(form.rent)
@@ -103,11 +147,18 @@ export default function SubmitPage() {
     }
     setStatus("saving")
     try {
+      const trimmedAddress = form.address.trim()
+      let geo = { status: geocodeStatus, result: geocodeResult }
+      if (trimmedAddress !== geocodedAddress || geocodeStatus === "idle" || geocodeStatus === "loading") {
+        geo = await runGeocode(trimmedAddress)
+      }
       const created = await addRentReport({
         ...form,
         rent: Number(form.rent),
         beds: Number(form.beds),
         baths: Number(form.baths),
+        lat: geo.result?.lat ?? null,
+        lng: geo.result?.lng ?? null,
       })
       setSubmissions((prev) => {
         const next = [...prev, created]
@@ -173,9 +224,28 @@ export default function SubmitPage() {
             <input
               className={`border rounded-lg px-3 py-2 ${error && !form.address ? "border-red-400" : ""}`}
               value={form.address}
-              onChange={(e) => set({ address: e.target.value })}
+              onChange={(e) => {
+                const value = e.target.value
+                set({ address: value })
+                if (value.trim() !== geocodedAddress) setGeocodeStatus("idle")
+              }}
+              onBlur={(e) => runGeocode(e.target.value)}
               placeholder="123 Main St, City"
             />
+            {geocodeStatus === "loading" && (
+              <div className="text-xs text-slate-500">Looking up address...</div>
+            )}
+            {geocodeStatus === "found" && geocodeResult && (
+              <div className="text-xs text-emerald-700">Found: {geocodeResult.displayName}</div>
+            )}
+            {geocodeStatus === "not-found" && (
+              <div className="text-xs text-amber-700">
+                Couldn&apos;t verify this address &mdash; you can still submit, but it may not appear on the map yet.
+              </div>
+            )}
+            {geocodeStatus === "error" && (
+              <div className="text-xs text-amber-700">Couldn&apos;t verify this address right now &mdash; you can still submit.</div>
+            )}
             {!!duplicateWarning && <div className="text-xs text-amber-700">{duplicateWarning}</div>}
           </div>
           <div className="grid grid-cols-2 gap-3">
