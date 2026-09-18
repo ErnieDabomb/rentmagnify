@@ -48,6 +48,19 @@ export default function ResultsList({ listings, onSelect, loading, hoveredId, on
                 )}
               </div>
               <div className="truncate text-xs text-slate-500">{l.address}</div>
+              {(l.washerDryer || l.hvac || l.pets) && (
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {l.washerDryer && (
+                    <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">W/D</span>
+                  )}
+                  {l.hvac && (
+                    <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">HVAC</span>
+                  )}
+                  {l.pets && (
+                    <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">Pets OK</span>
+                  )}
+                </div>
+              )}
             </button>
           ))}
           {!loading && listings.length === 0 && (

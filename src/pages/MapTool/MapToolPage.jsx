@@ -157,8 +157,6 @@ export default function MapToolPage() {
   const [hoveredId, setHoveredId] = useState(null)
   const [focusedListingName, setFocusedListingName] = useState('')
   const [statusMsg, setStatusMsg] = useState('')
-  const [showEmailModal, setShowEmailModal] = useState(() => !localStorage.getItem('rm_email_optin'))
-  const [email, setEmail] = useState('')
 
   const resetFilters = () => {
     setFilters({
@@ -279,42 +277,6 @@ export default function MapToolPage() {
       </div>
 
       <MobileFilterSheet filters={filters} onChange={setFilters} />
-
-      {showEmailModal && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 px-4">
-          <div className="max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
-            <h3 className="text-lg font-bold text-slate-900">Stay in the loop</h3>
-            <p className="text-sm text-slate-600">Get occasional updates about new features and rent insights. No spam, no ads.</p>
-            <form
-              className="mt-3 grid gap-2"
-              onSubmit={(e) => {
-                e.preventDefault()
-                if (email.trim()) {
-                  localStorage.setItem('rm_email_optin', email.trim())
-                  setShowEmailModal(false)
-                  setStatusMsg("Thanks! We'll keep you posted.")
-                  setTimeout(() => setStatusMsg(''), 1500)
-                  logEvent('email_optin', { email: email.trim() })
-                }
-              }}
-            >
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                placeholder="you@example.com"
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <div className="flex gap-2">
-                <button type="submit" className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white">Keep me updated</button>
-                <button type="button" onClick={() => setShowEmailModal(false)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">No thanks</button>
-              </div>
-              <div className="text-[11px] text-slate-500">Privacy-first. Unsubscribe anytime.</div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

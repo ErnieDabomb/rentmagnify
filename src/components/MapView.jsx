@@ -230,7 +230,7 @@ const TRANSIT_TILE_TOKEN = import.meta.env.VITE_TRANSIT_TILE_TOKEN
                 <Popup>
                   <div className="min-w-[180px] space-y-1">
                     <div className="font-bold text-slate-900">{l.title}</div>
-                    <div className="text-slate-800">${l.rent.toLocaleString()} Â· {l.beds}bd/{l.baths}ba</div>
+                    <div className="text-slate-800">${l.rent.toLocaleString()} &middot; {l.beds}bd/{l.baths}ba</div>
                     <div className="text-slate-600">{l.address}</div>
                     <div className="text-[11px] font-semibold">
                       {l.source === 'verified' ? (
@@ -239,6 +239,19 @@ const TRANSIT_TILE_TOKEN = import.meta.env.VITE_TRANSIT_TILE_TOKEN
                         <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">Community</span>
                       )}
                     </div>
+                    {(l.washerDryer || l.hvac || l.pets) && (
+                      <div className="flex flex-wrap gap-1 pt-0.5">
+                        {l.washerDryer && (
+                          <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">W/D</span>
+                        )}
+                        {l.hvac && (
+                          <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">HVAC</span>
+                        )}
+                        {l.pets && (
+                          <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">Pets OK</span>
+                        )}
+                      </div>
+                    )}
                     {l.available && <div className="mt-1 text-slate-500">Available {l.available}</div>}
                   </div>
                 </Popup>
