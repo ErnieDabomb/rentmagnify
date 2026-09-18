@@ -21,7 +21,7 @@ export default function ResultsList({ listings, onSelect, loading, hoveredId, on
     <aside className="hidden lg:block" aria-label="Listings sidebar">
       <div className="rounded-xl border border-slate-200 bg-white/80 p-3">
         <div className="mb-2 text-sm font-semibold text-slate-700" aria-live="polite">Results</div>
-        <div className="grid max-h-[460px] gap-2 overflow-auto pr-1">
+        <div className="grid max-h-[70vh] min-h-[460px] gap-2 overflow-auto pr-1">
           {loading && <SkeletonItem />}
           {listings.map((l) => (
             <div

@@ -17,3 +17,11 @@ html, body, #root { height: 100%; }
     @apply bg-gradient-to-b from-slate-50 via-indigo-50/50 to-slate-50 text-slate-900;
   }
 }
+
+/* OpenStreetMap's free "Standard" tiles are intentionally pale/minimal at
+   city-region zoom levels (no bold color fills, thin roads). A light
+   saturation/contrast boost keeps the free basemap from reading as washed
+   out without switching to a paid tile provider. */
+.leaflet-tile-pane {
+  filter: saturate(1.4) contrast(1.1);
+}

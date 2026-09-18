@@ -6,11 +6,14 @@ import { applyFilters } from '../utils/filters'
 import { createClusterer } from '../utils/clustering'
 import L from 'leaflet'
 
+// A blank/transparent fallback. Leaflet swaps this in on any tile load
+// failure, including tiles cancelled mid-request by a fitBounds/pan
+// transition (not just genuine 404s) - those are common with the sparse
+// transit overlay, so a visible placeholder here was painting a pale wash
+// across large parts of the map instead of just letting the base layer
+// show through underneath.
 const ERROR_TILE = "data:image/svg+xml;utf8," + encodeURIComponent(
-  "<svg xmlns='http://www.w3.org/2000/svg' width='256' height='256'>"
-  + "<rect width='256' height='256' fill='#f1f5f9'/>"
-  + "<path d='M0 0L256 256M256 0L0 256' stroke='#cbd5e1' stroke-width='1'/>"
-  + "</svg>"
+  "<svg xmlns='http://www.w3.org/2000/svg' width='256' height='256'></svg>"
 )
 
 function SetViewOnChange({ center, zoom }) {
@@ -136,7 +139,7 @@ const TRANSIT_TILE_TOKEN = import.meta.env.VITE_TRANSIT_TILE_TOKEN
   }
 
   return (
-    <div className="relative z-0 isolate h-[500px] w-full" role="region" aria-label="Map view">
+    <div className="relative z-0 isolate h-[70vh] min-h-[500px] max-h-[760px] w-full" role="region" aria-label="Map view">
       {focusedListingName && (
         <div className="sr-only" aria-live="polite">
           Focusing map on {focusedListingName}

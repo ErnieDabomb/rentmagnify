@@ -250,7 +250,7 @@ export default function MapToolPage() {
           {!error && (
             <Suspense
               fallback={
-                <div className="relative h-[500px] w-full overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                <div className="relative h-[70vh] min-h-[500px] max-h-[760px] w-full overflow-hidden rounded-2xl border border-slate-200 bg-white">
                   <div className="absolute inset-0 grid place-items-center">
                     <div className="animate-pulse text-sm text-slate-500">Loading map...</div>
                   </div>
