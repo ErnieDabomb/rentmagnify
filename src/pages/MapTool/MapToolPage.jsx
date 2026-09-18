@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useListings } from '../../hooks/useListings'
+import { useSavedListings } from '../../hooks/useSavedListings'
 import { applyFilters } from '../../utils/filters'
 import MapToolHeader from './components/MapToolHeader'
 import MapToolControls from './components/MapToolControls'
@@ -13,6 +14,8 @@ const MapView = lazy(() => import('../../components/MapView'))
 
 export default function MapToolPage() {
   const { listings, loading, error } = useListings()
+  const { saved, isSaved, toggleSaved } = useSavedListings()
+  const [savedOnly, setSavedOnly] = useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
 
   const decodeShort = () => {
@@ -134,14 +137,18 @@ export default function MapToolPage() {
   }
 
   const filtered = useMemo(() => applyFilters(listings, filters), [listings, filters])
+  const visibleListings = useMemo(
+    () => (savedOnly ? filtered.filter((l) => saved.has(l.id)) : filtered),
+    [filtered, savedOnly, saved]
+  )
   const missingCoords = useMemo(
-    () => filtered.filter((l) => !Number.isFinite(l.lat) || !Number.isFinite(l.lng)).length,
-    [filtered]
+    () => visibleListings.filter((l) => !Number.isFinite(l.lat) || !Number.isFinite(l.lng)).length,
+    [visibleListings]
   )
   const dataBounds = useMemo(() => {
-    if (!filtered?.length) return null
+    if (!visibleListings?.length) return null
     let north = -90, south = 90, east = -180, west = 180
-    for (const l of filtered) {
+    for (const l of visibleListings) {
       if (typeof l.lat !== 'number' || typeof l.lng !== 'number') continue
       if (l.lat > north) north = l.lat
       if (l.lat < south) south = l.lat
@@ -150,7 +157,7 @@ export default function MapToolPage() {
     }
     if (north < south || east < west) return null
     return { north, south, east, west }
-  }, [filtered])
+  }, [visibleListings])
 
   const [fitVersion, setFitVersion] = useState(0)
   const [copied, setCopied] = useState(false)
@@ -184,9 +191,9 @@ export default function MapToolPage() {
           {missingCoords} listings are missing coordinates and will not render on the map.
         </div>
       )}
-      <MapToolHeader filteredCount={filtered.length} totalCount={listings?.length || 0} loading={loading} />
+      <MapToolHeader filteredCount={visibleListings.length} totalCount={listings?.length || 0} loading={loading} />
 
-      <StatsInline listings={filtered} />
+      <StatsInline listings={visibleListings} />
 
       <MapToolControls
         filters={filters}
@@ -196,6 +203,9 @@ export default function MapToolPage() {
         onClear={resetFilters}
         onResetView={() => { if (dataBounds) setFitVersion((v) => v + 1) }}
         canReset={Boolean(dataBounds)}
+        savedOnly={savedOnly}
+        onToggleSavedOnly={() => setSavedOnly((v) => !v)}
+        savedCount={saved.size}
         onCopyLink={async () => {
           try {
             await navigator.clipboard.writeText(window.location.href)
@@ -222,9 +232,11 @@ export default function MapToolPage() {
         onPickLocation={(c) => setViewport({ lat: c.lat, lng: c.lng, zoom: c.zoom || 12 })}
       />
 
-      {!loading && filtered.length === 0 && (
+      {!loading && visibleListings.length === 0 && (
         <div className="rounded-xl border border-slate-200 bg-white/70 p-4 text-slate-700">
-          No results match your filters. Try widening price, beds, or clearing the keyword.
+          {savedOnly
+            ? "You haven't saved any listings that match your current filters."
+            : 'No results match your filters. Try widening price, beds, or clearing the keyword.'}
         </div>
       )}
       {error && (
@@ -246,7 +258,7 @@ export default function MapToolPage() {
               }
             >
               <MapView
-                listings={filtered}
+                listings={visibleListings}
                 center={viewport ? [viewport.lat, viewport.lng] : undefined}
                 zoom={viewport?.zoom || 12}
                 onViewportChange={(v) => setViewport(v)}
@@ -258,15 +270,19 @@ export default function MapToolPage() {
                 onHoverListing={setHoveredId}
                 onResetFilters={resetFilters}
                 focusedListingName={focusedListingName}
+                isSaved={isSaved}
+                onToggleSaved={toggleSaved}
               />
             </Suspense>
           )}
         </div>
       <ResultsList
-        listings={filtered}
+        listings={visibleListings}
         loading={loading}
         hoveredId={hoveredId}
         onHover={setHoveredId}
+        isSaved={isSaved}
+        onToggleSaved={toggleSaved}
         onSelect={(l) => {
             setFocusedListingName(l.title || l.address || 'Listing')
             if (Number.isFinite(l.lat) && Number.isFinite(l.lng)) {

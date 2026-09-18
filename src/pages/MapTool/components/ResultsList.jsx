@@ -16,7 +16,7 @@ function SkeletonItem({ count = 4 }) {
   )
 }
 
-export default function ResultsList({ listings, onSelect, loading, hoveredId, onHover }) {
+export default function ResultsList({ listings, onSelect, loading, hoveredId, onHover, isSaved, onToggleSaved }) {
   return (
     <aside className="hidden lg:block" aria-label="Listings sidebar">
       <div className="rounded-xl border border-slate-200 bg-white/80 p-3">
@@ -24,8 +24,10 @@ export default function ResultsList({ listings, onSelect, loading, hoveredId, on
         <div className="grid max-h-[460px] gap-2 overflow-auto pr-1">
           {loading && <SkeletonItem />}
           {listings.map((l) => (
-            <button
+            <div
               key={l.id}
+              role="button"
+              tabIndex={0}
               onClick={() => onSelect(l)}
               onMouseEnter={() => onHover?.(l.id)}
               onMouseLeave={() => onHover?.(null)}
@@ -35,10 +37,23 @@ export default function ResultsList({ listings, onSelect, loading, hoveredId, on
                   onSelect(l)
                 }
               }}
-              className={`text-left rounded-lg border bg-white p-2 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${hoveredId === l.id ? 'border-indigo-400 shadow-sm' : 'border-slate-200'}`}
-              tabIndex={0}
-              >
-              <div className="truncate text-sm font-medium text-slate-900">{l.title}</div>
+              className={`relative cursor-pointer rounded-lg border bg-white p-2 text-left transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${hoveredId === l.id ? 'border-indigo-400 shadow-sm' : 'border-slate-200'}`}
+            >
+              {onToggleSaved && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onToggleSaved(l.id)
+                  }}
+                  aria-label={isSaved?.(l.id) ? 'Remove from saved listings' : 'Save this listing'}
+                  aria-pressed={isSaved?.(l.id)}
+                  className="absolute right-1.5 top-1.5 text-base leading-none text-amber-500 transition hover:scale-110 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  {isSaved?.(l.id) ? '★' : '☆'}
+                </button>
+              )}
+              <div className="truncate pr-5 text-sm font-medium text-slate-900">{l.title}</div>
               <div className="flex items-center gap-2 text-xs text-slate-600">
                 <span>${l.rent.toLocaleString()} · {l.beds}bd/{l.baths}ba</span>
                 {l.source === 'verified' ? (
@@ -61,7 +76,7 @@ export default function ResultsList({ listings, onSelect, loading, hoveredId, on
                   )}
                 </div>
               )}
-            </button>
+            </div>
           ))}
           {!loading && listings.length === 0 && (
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-500">

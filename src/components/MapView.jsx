@@ -66,6 +66,8 @@ export default function MapView({
   onHoverListing,
   onResetFilters,
   focusedListingName,
+  isSaved,
+  onToggleSaved,
 }) {
   const { listings, loading: internalLoading, error } = useListings()
   const hasValidCoords = (point) => Number.isFinite(Number(point?.lat)) && Number.isFinite(Number(point?.lng))
@@ -229,7 +231,20 @@ const TRANSIT_TILE_TOKEN = import.meta.env.VITE_TRANSIT_TILE_TOKEN
               >
                 <Popup>
                   <div className="min-w-[180px] space-y-1">
-                    <div className="font-bold text-slate-900">{l.title}</div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="font-bold text-slate-900">{l.title}</div>
+                      {onToggleSaved && (
+                        <button
+                          type="button"
+                          onClick={() => onToggleSaved(l.id)}
+                          aria-label={isSaved?.(l.id) ? 'Remove from saved listings' : 'Save this listing'}
+                          aria-pressed={isSaved?.(l.id)}
+                          className="text-base leading-none text-amber-500 transition hover:scale-110"
+                        >
+                          {isSaved?.(l.id) ? '★' : '☆'}
+                        </button>
+                      )}
+                    </div>
                     <div className="text-slate-800">${l.rent.toLocaleString()} &middot; {l.beds}bd/{l.baths}ba</div>
                     <div className="text-slate-600">{l.address}</div>
                     <div className="text-[11px] font-semibold">
